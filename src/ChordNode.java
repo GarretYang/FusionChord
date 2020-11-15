@@ -45,7 +45,11 @@ public class ChordNode {
         fingerTable[1].node = successor;
         this.predecessor = successor.predecessor;
         this.successor = successor;
+        successor.predecessor.successor = this;
         successor.predecessor = this;
+        if (successor.successor.equals(successor)) {
+            successor.successor = this;
+        }
         for (int i = 1; i < m; i++) {
             if (inInterval(fingerTable[i+1].start, nid, fingerTable[i].node.nid)) {
                 fingerTable[i+1].node = fingerTable[i].node;
@@ -56,7 +60,9 @@ public class ChordNode {
     }
 
     public void updateFingerTable(ChordNode s, int i) {
-        if (inInterval(s.nid, nid, fingerTable[i].node.nid)) {
+        int startInterval = nid;
+        int endInterval = fingerTable[i].node.nid < nid ? fingerTable[i].node.nid + (int) Math.pow(2, m) : fingerTable[i].node.nid;
+        if ((nid == fingerTable[i].node.nid) || (startInterval < s.nid && s.nid < endInterval)) {
             fingerTable[i].node = s;
             predecessor.updateFingerTable(s, i);
         }
@@ -64,7 +70,9 @@ public class ChordNode {
 
     public void updateOthers() {
         for (int i = 1; i <= m; i++) {
-            ChordNode pre = findPredecessor((nid-(int) Math.pow(2,i-1)) % (int) Math.pow(2,m));
+            int pid = (nid-(int) Math.pow(2,i-1)) % (int) Math.pow(2,m);
+            ChordNode pre = findPredecessor(pid);
+            if (pre.successor.nid == pid) pre = pre.successor;
             pre.updateFingerTable(this, i);
         }
     }
@@ -77,7 +85,7 @@ public class ChordNode {
     }
 
     public ChordNode findKey(int id) {
-        int modId = id % (int) Math.pow(2,m);
+        int modId = id % (int) Math.pow(2, m);
         return findSuccessor(modId);
     }
 
@@ -91,7 +99,11 @@ public class ChordNode {
     public ChordNode findPredecessor(int id) {
         ChordNode cur = this;
         ChordNode immediateSuccessor = cur.successor;
+
+        if (id == cur.nid) return cur.predecessor;
+
         while (!inInterval(id,cur.nid, immediateSuccessor.nid)) {
+            if (id == cur.nid) return cur.predecessor;
             cur = cur.findClosestPrecedingFinger(id);
             immediateSuccessor = cur.successor;
         }
@@ -101,7 +113,8 @@ public class ChordNode {
     public ChordNode findClosestPrecedingFinger(int id) {
         for (int i = m; i >= 1; i--) {
             int fingerId = fingerTable[i].node.nid;
-            if (inInterval(fingerId,nid, id)) {
+//            cur.nid < fingerId && fingerId < id
+            if (inInterval(fingerId,nid,id)) {
                 return fingerTable[i].node;
             }
         }
@@ -109,7 +122,8 @@ public class ChordNode {
     }
 
     public boolean inInterval(int id, int start, int end) {
-        if (start > end) {
+        if (start >= end) {
+            if (id <= end) return true;
             end += (int) Math.pow(2, m);
         }
         return start < id && id <= end;
@@ -127,7 +141,6 @@ public class ChordNode {
             }
         } else {
             initFingerTable(network);
-            System.out.println("After init");
             updateOthers();
         }
 
