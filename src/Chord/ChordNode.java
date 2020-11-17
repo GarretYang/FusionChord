@@ -1,3 +1,5 @@
+package Chord;
+
 import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -9,16 +11,16 @@ import java.util.List;
 class Finger {
     public int start;
     public int[] interval;
-    public ChordNode node;
+    public int nid;
     
-    public Finger(int start, int[] interval, ChordNode node) {
+    public Finger(int start, int[] interval, int nid) {
         this.start = start;
         this.interval = interval;
-        this.node = node;
+        this.nid = nid;
     }
 
     public String toString() {
-        return "start: " + start + " ,interval: [" + interval[0] + ", " + interval[1] + "), node: " + node.toString();
+        return "start: " + start + " ,interval: [" + interval[0] + ", " + interval[1] + "), node: " + nid;
     }
 }
 
@@ -28,8 +30,8 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     public int nid;
     public List<Integer> keys;
     public Finger[] fingerTable;
-    public ChordNode successor;
-    public ChordNode predecessor;
+    public int successor;
+    public int predecessor;
 
     Registry registry;
     ChordRMI stub;
@@ -39,8 +41,8 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         this.nid = id;
         this.fingerTable = new Finger[m+1];
         this.keys = new ArrayList<>();
-        this.successor = this;
-        this.predecessor = this;
+        this.successor = id;
+        this.predecessor = id;
 
         try {
             System.setProperty("java.rmi.server.hostname", "127.0.0.1");
@@ -63,15 +65,32 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
             Registry registry = LocateRegistry.getRegistry(portId);
             stub=(ChordRMI) registry.lookup("Chord");
             if (rmi.equals("FindSuccessor")) {
-                callReply = stub.findSuccessor(new Request(ChordId));
+                callReply = stub.findSuccessor(ChordId);
             } else if (rmi.equals("FindPredecessor")) {
-//                callReply = stub.findPredecessor(ChordId);
+                callReply = stub.findPredecessor(ChordId);
             } else if (rmi.equals("Notify")) {
                 callReply = stub.notify(new Request(ChordId));
+            } else if (rmi.equals("GetNID")) {
+                callReply = stub.getNID();
+            } else if (rmi.equals("GetSuccessor")) {
+                callReply = stub.getSuccessor();
+            } else if (rmi.equals("GetPredecessor")) {
+                callReply = stub.getPredecessor();
+            } else if (rmi.equals("SetSuccessor")) {
+                callReply = stub.setSuccessor(ChordId);
+            } else if (rmi.equals("SetPredecessor")) {
+                callReply = stub.setPredecessor(ChordId);
+            } else if (rmi.equals("FindClosestPrecedingFinger")) {
+                callReply = stub.findClosestPrecedingFinger(ChordId);
+            } else if (rmi.startsWith("UpdateFingerTable")) {
+                int fingerIndex = Integer.parseInt(rmi.substring("UpdateFingerTable".length()));
+                callReply = stub.updateFingerTable(ChordId, fingerIndex);
             } else {
+                stub.addNode(new ChordNode(3, 1));
                 System.out.println("Invalid parameters");
             }
         } catch (Exception e) {
+            e.printStackTrace();
             return null;
         }
 
@@ -79,80 +98,88 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     }
 
     // init finger table all nodes in the table points to the current node
-    public void initFingerTable(ChordNode n) {
+    public void initFingerTable(int ServerId) {
         for (int i = 1; i <= m; i++) {
             int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);;
             int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);;
-            fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this);
+            fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this.nid);
         }
-        ChordNode successor = Call("FindSuccessor", fingerTable[1].start, n.nid).node;
-        fingerTable[1].node = successor;
-        this.predecessor = successor.predecessor;
+        int successor = (Integer) Call("FindSuccessor", fingerTable[1].start, ServerId).value; //Call("FindSuccessor", fingerTable[1].start, n.nid).node;
+
+        fingerTable[1].nid = successor;
+        this.predecessor = (Integer) Call("GetPredecessor", -1, successor).value;
         this.successor = successor;
-        successor.predecessor.successor = this;
-        successor.predecessor = this;
-        if (successor.successor.equals(successor)) {
-            successor.successor = this;
+
+        int sucPredecessor = (Integer) Call("GetPredecessor", -1, successor).value;
+        Call("SetSuccessor", this.nid, sucPredecessor);
+        Call("SetPredecessor", this.nid, successor);
+        if ((Integer) Call("GetSuccessor", -1, successor).value == successor) {
+            Call("SetSuccessor", this.nid, successor);
         }
         for (int i = 1; i < m; i++) {
-            if (inInterval(fingerTable[i+1].start, nid, fingerTable[i].node.nid)) {
-                fingerTable[i+1].node = fingerTable[i].node;
+            if (inInterval(fingerTable[i+1].start, nid, fingerTable[i].nid)) {
+                fingerTable[i+1].nid = fingerTable[i].nid;
             } else {
-                fingerTable[i+1].node = findSuccessor(new Request(fingerTable[i+1].start)).node;
+                fingerTable[i+1].nid = (Integer) findSuccessor(fingerTable[i+1].start).value;
             }
         }
     }
 
-    public void updateFingerTable(ChordNode s, int i) {
+    public Response updateFingerTable(int ChordId, int i) {
         int startInterval = nid;
-        int endInterval = fingerTable[i].node.nid < nid ? fingerTable[i].node.nid + (int) Math.pow(2, m) : fingerTable[i].node.nid;
-        if ((nid == fingerTable[i].node.nid) || (startInterval < s.nid && s.nid < endInterval)) {
-            fingerTable[i].node = s;
-            predecessor.updateFingerTable(s, i);
+        int endInterval = fingerTable[i].nid < nid ? fingerTable[i].nid + (int) Math.pow(2, m) : fingerTable[i].nid;
+        if ((nid == fingerTable[i].nid) || (startInterval < ChordId && ChordId < endInterval)) {
+            fingerTable[i].nid = ChordId;
+            Call("UpdateFingerTable"+i, ChordId, this.predecessor);
         }
+        return null;
     }
 
     public void updateOthers() {
         for (int i = 1; i <= m; i++) {
             int pid = (nid-(int) Math.pow(2,i-1)) % (int) Math.pow(2,m);
-            ChordNode pre = findPredecessor(pid);
-            if (pre.successor.nid == pid) pre = pre.successor;
-            pre.updateFingerTable(this, i);
+            int pre = (Integer) findPredecessor(pid).value;
+            int preSuccessor = (Integer) Call("GetSuccessor", -1, pre).value;
+            if (preSuccessor == pid) pre = preSuccessor;
+            Call("UpdateFingerTable"+i, this.nid, pre);
         }
     }
 
     public ChordNode addKey(int key) {
         int modKey = key % (int) Math.pow(2, m);
-        ChordNode successor = findSuccessor(new Request(modKey)).node;
-        successor.keys.add(key);
-        return successor;
+        int successor = (Integer) findSuccessor(modKey).value;
+//        successor.keys.add(key);
+//        return successor;
+        return null;
     }
 
     public ChordNode findKey(int id) {
         int modId = id % (int) Math.pow(2, m);
-        return findSuccessor(new Request(modId)).node;
+//        return findSuccessor(new Request(modId)).node;
+        return null;
     }
 
-    public Response findSuccessor(Request r) {
-        int id = r.ChordId;
-        if (successor.equals(this)) return new Response(this);
-        if (nid == id) return new Response(this);
-        ChordNode predecessor = findPredecessor(id);
-        return new Response(predecessor.successor);
+    public Response findSuccessor(int ChordId) {
+        if (successor == this.nid) return new Response(this.nid);
+        if (this.nid == ChordId) return new Response(this.nid);
+        int predecessor = (Integer) findPredecessor(ChordId).value;
+        return Call("GetSuccessor", -1, predecessor);
     }
 
-    public ChordNode findPredecessor(int id) {
-        ChordNode cur = this;
-        ChordNode immediateSuccessor = cur.successor;
+    public Response findPredecessor(int id) {
+        int cur = this.nid;
+        int immediateSuccessor = this.successor;
 
-        if (id == cur.nid) return cur.predecessor;
+        if (id == nid) return new Response(this.predecessor);
 
-        while (!inInterval(id,cur.nid, immediateSuccessor.nid)) {
-            if (id == cur.nid) return cur.predecessor;
-            cur = cur.findClosestPrecedingFinger(id);
-            immediateSuccessor = cur.successor;
+        while (!inInterval(id, cur, immediateSuccessor)) {
+            if (id == cur) return Call("GetPredecessor", -1, cur);
+
+            cur = (Integer) Call("FindClosestPrecedingFinger", id, cur).value;
+
+            immediateSuccessor = (Integer) Call("GetSuccessor", id, cur).value;
         }
-        return cur;
+        return new Response(cur);
     }
 
     @Override
@@ -160,15 +187,15 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         return null;
     }
 
-    public ChordNode findClosestPrecedingFinger(int id) {
+    public Response findClosestPrecedingFinger(int id) {
         for (int i = m; i >= 1; i--) {
-            int fingerId = fingerTable[i].node.nid;
+            int fingerId = fingerTable[i].nid;
 //            cur.nid < fingerId && fingerId < id
             if (inInterval(fingerId,nid,id)) {
-                return fingerTable[i].node;
+                return new Response(fingerTable[i].nid);
             }
         }
-        return this;
+        return new Response(this.nid);
     }
 
     public boolean inInterval(int id, int start, int end) {
@@ -182,32 +209,32 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     public void join(ChordNode network) {
         // there are no nodes in the entire network
         if (network == null) {
-            predecessor=this;
-            successor=this;
+            predecessor=this.nid;
+            successor=this.nid;
             for (int i = 1; i <= m; i++) {
-                int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);;
-                int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);;
-                fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this);
+                int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);
+                int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);
+                fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this.nid);
             }
         } else {
-            initFingerTable(network);
+            initFingerTable(network.nid);
             updateOthers();
         }
     }
 
     public synchronized void concurrentJoin(ChordNode network) {
-        if (network == null) {
-            join(null);
-        } else {
-            for (int i = 1; i <= m; i++) {
-                int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);;
-                int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);;
-                fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this);
-            }
-            ChordNode successor = network.findSuccessor(new Request(fingerTable[1].start)).node;
-            fingerTable[1].node = successor;
-            this.successor = successor;
-        }
+//        if (network == null) {
+//            join(null);
+//        } else {
+//            for (int i = 1; i <= m; i++) {
+//                int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);;
+//                int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);;
+//                fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this);
+//            }
+//            ChordNode successor = network.findSuccessor(new Request(fingerTable[1].start)).node;
+//            fingerTable[1].node = successor;
+//            this.successor = successor;
+//        }
     }
 
     public String toString() {
@@ -217,5 +244,40 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     @Override
     public void run() {
 
+    }
+
+    public void callGetPort() {
+        Call("", 0, 0);
+    }
+
+    public int getPort() {
+        return this.nid;
+    }
+
+    public void addNode(ChordNode node) {
+        System.out.println(node);
+    }
+
+
+    public Response getNID() {
+        return new Response(this.nid);
+    }
+
+    public Response getSuccessor() {
+        return new Response(this.successor);
+    }
+
+    public Response getPredecessor() {
+        return new Response(this.predecessor);
+    }
+
+    public Response setPredecessor(int Predecessor) {
+        this.predecessor = Predecessor;
+        return null;
+    }
+
+    public Response setSuccessor(int Successor) {
+        this.successor = Successor;
+        return null;
     }
 }
