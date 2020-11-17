@@ -238,7 +238,7 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     }
 
     public String toString() {
-        return this.nid + "";
+        return "Node" + this.nid;
     }
 
     @Override
@@ -279,5 +279,23 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     public Response setSuccessor(int Successor) {
         this.successor = Successor;
         return null;
+    }
+
+    public boolean exit() throws RemoteException{
+        try{
+            int portId = this.nid + 1000;
+            // Unregister ourself
+            registry.unbind("Chord");
+
+            // Unexport; this will also remove us from the RMI runtime
+            UnicastRemoteObject.unexportObject(this, true);
+
+            System.out.println("Server exited.");
+            return true;
+        }
+        catch(Exception e){
+            System.out.println("Server failed to exit.");
+            return false;
+        }
     }
 }
