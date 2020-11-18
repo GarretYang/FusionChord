@@ -5,8 +5,9 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 public interface ChordRMI extends Remote {
-    Response findSuccessor(int ChordId) throws RemoteException;
-    Response findPredecessor(int ChordId) throws RemoteException;
+    Response findSuccessor(Request r) throws RemoteException;
+
+    Response findPredecessor(Request r) throws RemoteException;
 //    Chord.Response findPredecessor(int id) throws RemoteException;
     Response notify(Request r) throws RemoteException;
     int getPort() throws RemoteException;
@@ -19,15 +20,15 @@ public interface ChordRMI extends Remote {
 
     Response getPredecessor() throws RemoteException;
 
-    Response findClosestPrecedingFinger(int ChordId) throws RemoteException;
+    Response findClosestPrecedingFinger(Request r) throws RemoteException;
 
-    Response setPredecessor(int Predecessor) throws RemoteException;
+    Response setPredecessor(Request r) throws RemoteException;
 
-    Response setSuccessor(int Successor) throws RemoteException;
+    Response setSuccessor(Request r) throws RemoteException;
 
-    Response updateFingerTable(int ChordId, int fingerIndex) throws RemoteException;
+    Response updateFingerTable(Request r) throws RemoteException;
 
-    Response putKey(int key, int value) throws RemoteException;
+    Response putKey(Request r) throws RemoteException;
 
-    Response getKey(int key) throws RemoteException;
+    Response getKey(Request r) throws RemoteException;
 }

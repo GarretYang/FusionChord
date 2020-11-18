@@ -142,17 +142,17 @@ public class ChordTest {
 
         // find successors of keys that are not in the ring
         for (ChordNode node : nodes) {
-            assertEquals(node.findSuccessor(2).value, 3);
-            assertEquals(node.findSuccessor(4).value, 6);
-            assertEquals(node.findSuccessor(7).value, 0);
+            assertEquals(node.findSuccessor(new Request(2)).value, 3);
+            assertEquals(node.findSuccessor(new Request(4)).value, 6);
+            assertEquals(node.findSuccessor(new Request(7)).value, 0);
         }
 
         // find successors of keys that are in the ring
         for (ChordNode node : nodes) {
-            assertEquals(node.findSuccessor(0).value, 0);
-            assertEquals(node.findSuccessor(1).value, 1);
-            assertEquals(node.findSuccessor(3).value, 3);
-            assertEquals(node.findSuccessor(6).value, 6);
+            assertEquals(node.findSuccessor(new Request(0)).value, 0);
+            assertEquals(node.findSuccessor(new Request(1)).value, 1);
+            assertEquals(node.findSuccessor(new Request(3)).value, 3);
+            assertEquals(node.findSuccessor(new Request(6)).value, 6);
         }
 
         for (ChordNode node : nodes) {
@@ -170,17 +170,17 @@ public class ChordTest {
 
         // find the predecessor of keys that are not in the ring
         for (ChordNode node : nodes) {
-            assertEquals(node.findPredecessor(2).value, 1);
-            assertEquals(node.findPredecessor(4).value, 3);
-            assertEquals(node.findPredecessor(7).value, 6);
+            assertEquals(node.findPredecessor(new Request(2)).value, 1);
+            assertEquals(node.findPredecessor(new Request(4)).value, 3);
+            assertEquals(node.findPredecessor(new Request(7)).value, 6);
         }
 
         // find the predecessor of keys that are in the ring
         for (ChordNode node : nodes) {
-            assertEquals(node.findPredecessor(0).value, 6);
-            assertEquals(node.findPredecessor(1).value, 0);
-            assertEquals(node.findPredecessor(3).value, 1);
-            assertEquals(node.findPredecessor(6).value, 3);
+            assertEquals(node.findPredecessor(new Request(0)).value, 6);
+            assertEquals(node.findPredecessor(new Request(1)).value, 0);
+            assertEquals(node.findPredecessor(new Request(3)).value, 1);
+            assertEquals(node.findPredecessor(new Request(6)).value, 3);
         }
 
         for (ChordNode node : nodes) {
