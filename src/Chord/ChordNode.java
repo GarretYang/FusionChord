@@ -84,8 +84,12 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
                 callReply = stub.setPredecessor(r);
             } else if (rmi.equals("FindClosestPrecedingFinger")) {
                 callReply = stub.findClosestPrecedingFinger(r);
-            } else if (rmi.startsWith("UpdateFingerTable")) {
+            } else if (rmi.equals("UpdateFingerTable")) {
                 callReply = stub.updateFingerTable(r);
+            } else if (rmi.equals("PutKey")) {
+                callReply = stub.putKey(r);
+            } else if (rmi.equals("GetKey")) {
+                callReply = stub.getKey(r);
             } else {
                 stub.addNode(new ChordNode(3, 1));
                 System.out.println("Invalid parameters");
@@ -155,9 +159,9 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         int target = (Integer) Call("FindSuccessor", new Request(key), this.nid).value;
         if (target == this.nid) {
             this.hm.put(key, value);
-            return new Response(target);
+            return new Response(value, target);
         }
-        return null;
+        return Call("PutKey", new Request(target, key, value), target);
     }
 
     public Response getKey(Request r) {
@@ -165,10 +169,12 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         int target = (Integer) Call("FindSuccessor", new Request(key), this.nid).value;
         if (target == this.nid) {
             if (this.hm.containsKey(key)) {
-                return new Response(hm.get(key));
+                return new Response(hm.get(key), target);
+            } else {
+                return new Response(null, target);
             }
         }
-        return new Response(null);
+        return Call("GetKey", new Request(target, key, null), target);
     }
 
     public Response findSuccessor(Request r) {

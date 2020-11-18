@@ -5,6 +5,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 
 import static org.junit.Assert.*;
 
@@ -196,5 +197,29 @@ public class ChordTest {
     @Test
     public void TestBuildFullRing() {
         buildFullRing(true);
+    }
+
+    @Test
+    public void TestKeyAllocation() {
+
+        // Node 0, 1, 3, 6
+        List<ChordNode> nodes = buildRing(false);
+        Random r = new Random();
+
+        ChordNode rNode1 = nodes.get(r.nextInt(nodes.size()));
+        ChordNode rNode2 = nodes.get(r.nextInt(nodes.size()));
+
+        rNode1.putKey(new Request(null, 4, 4444));
+        rNode1.putKey(new Request(null, 20, 2020));
+        Response r1 = rNode2.getKey(new Request(null, 4, null));
+        Response r2 = rNode2.putKey(new Request(null, 20, 2020));
+        Response r3 = rNode2.getKey(new Request(null, 0, null));
+
+        assertEquals("The value should be 4444", 4444, r1.value);
+        assertEquals("The value should be 2020", 2020, r2.value);
+        assertNull("The value should not exist", r3.value);
+        assertEquals("The server should be 6", 6, r1.ChordId);
+        assertEquals("The server should be 6", 6, r2.ChordId);
+
     }
 }

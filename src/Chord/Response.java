@@ -10,8 +10,14 @@ public class Response implements Serializable {
     static final long serialVersionUID=22L;
     // your data here
     Object value;
+    int ChordId;
     // Your constructor and methods here
     public Response(Object value) {
+        this.value = value;
+    }
+
+    public Response(Object value, int ChordId) {
+        this.ChordId = ChordId;
         this.value = value;
     }
 }
