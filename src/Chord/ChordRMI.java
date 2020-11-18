@@ -31,4 +31,8 @@ public interface ChordRMI extends Remote {
     Response putKey(Request r) throws RemoteException;
 
     Response getKey(Request r) throws RemoteException;
+
+    Response removeKey(Request r) throws RemoteException;
+
+    Response migrateKey(Request r) throws RemoteException;
 }

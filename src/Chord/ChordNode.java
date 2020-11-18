@@ -5,9 +5,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 class Finger {
@@ -90,6 +88,10 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
                 callReply = stub.putKey(r);
             } else if (rmi.equals("GetKey")) {
                 callReply = stub.getKey(r);
+            } else if (rmi.equals("RemoveKey")) {
+                callReply = stub.removeKey(r);
+            } else if (rmi.equals("MigrateKey")) {
+                callReply = stub.migrateKey(r);
             } else {
                 stub.addNode(new ChordNode(3, 1));
                 System.out.println("Invalid parameters");
@@ -177,6 +179,45 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         return Call("GetKey", new Request(target, key, null), target);
     }
 
+    public void updateLocalKey() {
+        Response rsp = Call("MigrateKey", new Request(this.nid), this.successor);
+        Map<Integer,Integer> migrateMap = rsp.hm;
+        for (Integer key : migrateMap.keySet()) {
+            this.hm.put(key, migrateMap.get(key));
+        }
+    }
+
+    public Response removeKey(Request r) {
+        int key = r.key;
+        int target = (Integer) Call("FindSuccessor", new Request(key), this.nid).value;
+        if (target == this.nid) {
+            if (this.hm.containsKey(key)) {
+                int value = hm.get(key);
+                hm.remove(key);
+                return new Response(value, target);
+            } else {
+                return new Response(null, target);
+            }
+        }
+        return Call("RemoveKey", new Request(target, key, null), target);
+    }
+
+    public Response migrateKey(Request r) {
+        int ChordId = r.ChordId;
+        Map<Integer, Integer> migrateMap = new HashMap<>();
+        for (Integer key : hm.keySet()) {
+            if (key % Math.pow(2, m) <= ChordId) {
+                migrateMap.put(key, hm.get(key));
+            }
+        }
+
+        for (Integer key : migrateMap.keySet()) {
+            hm.remove(key);
+        }
+
+        return new Response(new HashMap<>(migrateMap));
+    }
+
     public Response findSuccessor(Request r) {
         int ChordId = (int) (r.ChordId % Math.pow(2, m));
         if (successor == this.nid) return new Response(this.nid);
@@ -241,6 +282,7 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         } else {
             initFingerTable(network.nid);
             updateOthers();
+            updateLocalKey();
         }
     }
 

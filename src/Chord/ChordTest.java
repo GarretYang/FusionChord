@@ -33,6 +33,8 @@ public class ChordTest {
         Node6.join(Node1);
         nodes.add(Node6);
 
+        nodes.sort(Comparator.comparing(ChordNode::toString));
+
         if (shouldPrint) {
             for (ChordNode node : nodes) {
                 for (int i = 1; i <= node.m; i++) {
@@ -196,6 +198,7 @@ public class ChordTest {
 
     @Test
     public void TestBuildFullRing() {
+        // The node in the finger table should has the same id of the lower bound of the interval
         buildFullRing(true);
     }
 
@@ -220,6 +223,42 @@ public class ChordTest {
         assertNull("The value should not exist", r3.value);
         assertEquals("The server should be 6", 6, r1.ChordId);
         assertEquals("The server should be 6", 6, r2.ChordId);
+
+    }
+
+    @Test
+    public void TestKeyMigration() {
+
+        // Node 0, 1, 3, 6
+        List<ChordNode> nodes = buildRing(false);
+        Random r = new Random();
+
+        ChordNode rNode1 = nodes.get(r.nextInt(nodes.size()));
+        ChordNode rNode2 = nodes.get(r.nextInt(nodes.size()));
+
+        rNode1.putKey(new Request(null, 4, 4444));
+        rNode1.putKey(new Request(null, 20, 2020));
+        Response r1 = rNode2.getKey(new Request(null, 4, null));
+        Response r2 = rNode2.putKey(new Request(null, 20, 2020));
+
+        assertEquals("The server should be 6", 6, r1.ChordId);
+        assertEquals("The server should be 6", 6, r2.ChordId);
+
+        ChordNode Node4 = new ChordNode(3, 4);
+        Node4.join(rNode1);
+
+        r1 = rNode2.getKey(new Request(null, 4, null));
+        r2 = rNode2.getKey(new Request(null, 20, null));
+
+        // the nodes should be migrated to Node 4 after the new node join
+        assertEquals("The server should be 4", 4, r1.ChordId);
+        assertEquals("The server should be 4", 4, r2.ChordId);
+        assertEquals("Should be 4444", 4444, r1.value);
+        assertEquals("Should be 2020", 2020, r2.value);
+
+        // the map in node 4 should be clear out
+        ChordNode Node6 = nodes.get(nodes.size()-1);
+        assertTrue("Node 6 should have an empty Map after the migration",Node6.hm.isEmpty());
 
     }
 }
