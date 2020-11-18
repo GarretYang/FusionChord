@@ -3,6 +3,7 @@ package Chord;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -78,6 +79,12 @@ public class ChordTest {
         ChordNode Node2 = new ChordNode(3, 2);
         Node2.join(Node0);
         nodes.add(Node2);
+
+        ChordNode Node7 = new ChordNode(3, 7);
+        Node7.join(Node5);
+        nodes.add(Node7);
+
+        nodes.sort(Comparator.comparing(ChordNode::toString));
 
         if (shouldPrint) {
             for (ChordNode node : nodes) {
