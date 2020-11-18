@@ -6,7 +6,9 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 class Finger {
     public int start;
@@ -28,7 +30,7 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     static final long serialVersionUID=33L;
     public int m;
     public int nid;
-    public List<Integer> keys;
+    public Map<Integer, Integer> hm;
     public Finger[] fingerTable;
     public int successor;
     public int predecessor;
@@ -40,7 +42,7 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         this.m = m;
         this.nid = id;
         this.fingerTable = new Finger[m+1];
-        this.keys = new ArrayList<>();
+        this.hm = new HashMap<>();
         this.successor = id;
         this.predecessor = id;
 
@@ -146,21 +148,28 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         }
     }
 
-    public ChordNode addKey(int key) {
+    public Response putKey(int key, int value) {
         int modKey = key % (int) Math.pow(2, m);
-        int successor = (Integer) findSuccessor(modKey).value;
-//        successor.keys.add(key);
-//        return successor;
+        int target = (Integer) Call("FindSuccessor", modKey, this.nid).value;
+        if (target == this.nid) {
+            this.hm.put(key, value);
+            return new Response(target);
+        }
         return null;
     }
 
-    public ChordNode findKey(int id) {
-        int modId = id % (int) Math.pow(2, m);
-//        return findSuccessor(new Request(modId)).node;
-        return null;
+    public Response getKey(int key) {
+        int target = (Integer) Call("FindSuccessor", key, this.nid).value;
+        if (target == this.nid) {
+            if (this.hm.containsKey(key)) {
+                return new Response(hm.get(key));
+            }
+        }
+        return new Response(null);
     }
 
     public Response findSuccessor(int ChordId) {
+        ChordId %= Math.pow(2, m);
         if (successor == this.nid) return new Response(this.nid);
         if (this.nid == ChordId) return new Response(this.nid);
         int predecessor = (Integer) findPredecessor(ChordId).value;
@@ -168,6 +177,8 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     }
 
     public Response findPredecessor(int id) {
+        id %= Math.pow(2, m);
+
         int cur = this.nid;
         int immediateSuccessor = this.successor;
 

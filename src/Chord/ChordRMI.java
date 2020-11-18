@@ -26,4 +26,8 @@ public interface ChordRMI extends Remote {
     Response setSuccessor(int Successor) throws RemoteException;
 
     Response updateFingerTable(int ChordId, int fingerIndex) throws RemoteException;
+
+    Response putKey(int key, int value) throws RemoteException;
+
+    Response getKey(int key) throws RemoteException;
 }
