@@ -128,7 +128,8 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     public Response updateFingerTable(int ChordId, int i) {
         int startInterval = nid;
         int endInterval = fingerTable[i].nid < nid ? fingerTable[i].nid + (int) Math.pow(2, m) : fingerTable[i].nid;
-        if ((nid == fingerTable[i].nid) || (startInterval < ChordId && ChordId < endInterval)) {
+        int modChordId = fingerTable[i].nid < nid && ChordId < nid ? ChordId + (int) Math.pow(2, m) : ChordId;
+        if ((nid == fingerTable[i].nid) || (startInterval < modChordId && modChordId < endInterval)) {
             fingerTable[i].nid = ChordId;
             Call("UpdateFingerTable"+i, ChordId, this.predecessor);
         }
