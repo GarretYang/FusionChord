@@ -20,13 +20,13 @@ public interface ChordRMI extends Remote {
 
     Response getPredecessor() throws RemoteException;
 
-    Response findClosestPrecedingFinger(Request r) throws RemoteException;
+    Response findClosestPrecedingFinger(Request r) throws Exception;
 
     Response setPredecessor(Request r) throws RemoteException;
 
     Response setSuccessor(Request r) throws RemoteException;
 
-    Response updateFingerTable(Request r) throws RemoteException;
+    Response updateFingerTable(Request r) throws Exception;
 
     Response putKey(Request r) throws RemoteException;
 

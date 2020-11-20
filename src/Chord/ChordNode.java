@@ -1,5 +1,7 @@
 package Chord;
 
+import FusionDs.fusionLinkedList;
+
 import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -26,10 +28,15 @@ class Finger {
 
 public class ChordNode implements ChordRMI, Runnable, Serializable {
     static final long serialVersionUID=33L;
+
+    static final int intervalStartColumn = 0;
+    static final int intervalEndColumn = 1;
+    static final int nidColumn = 2;
+
     public int m;
     public int nid;
     public Map<Integer, Integer> hm;
-    public Finger[] fingerTable;
+    public fusionLinkedList fingerTable;
     public int successor;
     public int predecessor;
 
@@ -39,7 +46,7 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     public ChordNode(int m, int id) {
         this.m = m;
         this.nid = id;
-        this.fingerTable = new Finger[m+1];
+        this.fingerTable = new fusionLinkedList(3);
         this.hm = new HashMap<>();
         this.successor = id;
         this.predecessor = id;
@@ -105,15 +112,18 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
     }
 
     // init finger table all nodes in the table points to the current node
-    public void initFingerTable(int ServerId) {
+    public void initFingerTable(int ServerId) throws Exception {
         for (int i = 1; i <= m; i++) {
             int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);;
             int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);;
-            fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this.nid);
+            fingerTable.insert(intervalStartColumn, i, intervalStart);
+            fingerTable.insert(intervalEndColumn, i, intervalEnd);
+            fingerTable.insert(nidColumn, i, this.nid);
         }
-        int successor = (Integer) Call("FindSuccessor", new Request(fingerTable[1].start), ServerId).value; //Call("FindSuccessor", fingerTable[1].start, n.nid).node;
 
-        fingerTable[1].nid = successor;
+        int successor = (Integer) Call("FindSuccessor", new Request(fingerTable.get(intervalStartColumn, 1)), ServerId).value; //Call("FindSuccessor", fingerTable[1].start, n.nid).node;
+
+        fingerTable.insert(nidColumn, 1, successor);
         this.predecessor = (Integer) Call("GetPredecessor", new Request(-1), successor).value;
         this.successor = successor;
 
@@ -124,22 +134,25 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
             Call("SetSuccessor", new Request(this.nid), successor);
         }
         for (int i = 1; i < m; i++) {
-            if (inInterval(fingerTable[i+1].start, nid, fingerTable[i].nid)) {
-                fingerTable[i+1].nid = fingerTable[i].nid;
+            if (inInterval(fingerTable.get(intervalStartColumn, i+1), nid, fingerTable.get(nidColumn, i))) {
+                Integer iNid = fingerTable.get(nidColumn, i);
+                fingerTable.insert(nidColumn, i+1, iNid);
             } else {
-                fingerTable[i+1].nid = (Integer) findSuccessor(new Request(fingerTable[i+1].start)).value;
+                Integer suc = (Integer) findSuccessor(new Request(fingerTable.get(intervalStartColumn, i+1))).value;
+                fingerTable.insert(nidColumn, i+1, suc);
             }
         }
     }
 
-    public Response updateFingerTable(Request r) {
+    public Response updateFingerTable(Request r) throws Exception {
         int ChordId = r.ChordId;
         int i = r.fingerIndex;
         int startInterval = nid;
-        int endInterval = fingerTable[i].nid < nid ? fingerTable[i].nid + (int) Math.pow(2, m) : fingerTable[i].nid;
-        int modChordId = fingerTable[i].nid < nid && ChordId < nid ? ChordId + (int) Math.pow(2, m) : ChordId;
-        if ((nid == fingerTable[i].nid) || (startInterval < modChordId && modChordId < endInterval)) {
-            fingerTable[i].nid = ChordId;
+        Integer iNid = fingerTable.get(nidColumn, i);
+        int endInterval = iNid < nid ? iNid + (int) Math.pow(2, m) : iNid;
+        int modChordId = iNid < nid && ChordId < nid ? ChordId + (int) Math.pow(2, m) : ChordId;
+        if ((nid == iNid) || (startInterval < modChordId && modChordId < endInterval)) {
+            fingerTable.insert(nidColumn, i, ChordId);
             Call("UpdateFingerTable", new Request(ChordId, i), this.predecessor);
         }
         return null;
@@ -249,13 +262,13 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         return null;
     }
 
-    public Response findClosestPrecedingFinger(Request r) {
+    public Response findClosestPrecedingFinger(Request r) throws Exception {
         int id = r.ChordId;
         for (int i = m; i >= 1; i--) {
-            int fingerId = fingerTable[i].nid;
+            Integer fingerId = fingerTable.get(nidColumn, i);
 //            cur.nid < fingerId && fingerId < id
             if (inInterval(fingerId,nid,id)) {
-                return new Response(fingerTable[i].nid);
+                return new Response(fingerTable.get(nidColumn, i));
             }
         }
         return new Response(this.nid);
@@ -269,7 +282,7 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
         return start < id && id <= end;
     }
 
-    public void join(ChordNode network) {
+    public void join(ChordNode network) throws Exception {
         // there are no nodes in the entire network
         if (network == null) {
             predecessor=this.nid;
@@ -277,7 +290,9 @@ public class ChordNode implements ChordRMI, Runnable, Serializable {
             for (int i = 1; i <= m; i++) {
                 int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);
                 int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);
-                fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this.nid);
+                fingerTable.insert(intervalStartColumn, i, intervalStart);
+                fingerTable.insert(intervalEndColumn, i, intervalEnd);
+                fingerTable.insert(nidColumn, i, this.nid);
             }
         } else {
             initFingerTable(network.nid);
