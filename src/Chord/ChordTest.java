@@ -13,7 +13,7 @@ public class ChordTest {
 
     // the ring should be 0 - 1 - 3 - 6
     //                    \ - - - - - |
-    public List<ChordNode> buildRing(boolean shouldPrint) {
+    public List<ChordNode> buildRing(boolean shouldPrint) throws Exception {
 
         List<ChordNode> nodes = new ArrayList<>();
 
@@ -38,7 +38,11 @@ public class ChordTest {
         if (shouldPrint) {
             for (ChordNode node : nodes) {
                 for (int i = 1; i <= node.m; i++) {
-                    System.out.println(node.fingerTable[i]);
+                    System.out.println(
+                            "start:" + node.fingerTable.get(0, i) +
+                            ",interval: [" + node.fingerTable.get(0, i) + "," + node.fingerTable.get(1, i) +
+                            "), node: " + node.fingerTable.get(2, i)
+                    );
                 }
 
                 System.out.println(node + " predecessor: " + node.predecessor + ", " + node + " successor: " + node.successor);
@@ -51,7 +55,7 @@ public class ChordTest {
     }
 
     // build a whole circle from 0 - 6
-    public List<ChordNode> buildFullRing(boolean shouldPrint) {
+    public List<ChordNode> buildFullRing(boolean shouldPrint) throws Exception {
 
         List<ChordNode> nodes = new ArrayList<>();
 
@@ -92,7 +96,11 @@ public class ChordTest {
         if (shouldPrint) {
             for (ChordNode node : nodes) {
                 for (int i = 1; i <= node.m; i++) {
-                    System.out.println(node.fingerTable[i]);
+                    System.out.println(
+                            "start:" + node.fingerTable.get(0, i) +
+                                    ",interval: [" + node.fingerTable.get(0, i) + "," + node.fingerTable.get(1, i) +
+                                    "), node: " + node.fingerTable.get(2, i)
+                    );
                 }
 
                 System.out.println(node + " predecessor: " + node.predecessor + ", " + node + " successor: " + node.successor);
@@ -105,7 +113,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestJoin() {
+    public void TestJoin() throws Exception {
         ChordNode Node0 = new ChordNode(3,0);
         Node0.join(null);
 
@@ -140,7 +148,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestFindSuccessor() {
+    public void TestFindSuccessor() throws Exception {
         List<ChordNode> nodes = buildRing(false);
 
         // find successors of keys that are not in the ring
@@ -168,7 +176,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestFindPredecessor() {
+    public void TestFindPredecessor() throws Exception {
         List<ChordNode> nodes = buildRing(false);
 
         // find the predecessor of keys that are not in the ring
@@ -197,13 +205,13 @@ public class ChordTest {
     }
 
     @Test
-    public void TestBuildFullRing() {
+    public void TestBuildFullRing() throws Exception {
         // The node in the finger table should has the same id of the lower bound of the interval
         buildFullRing(true);
     }
 
     @Test
-    public void TestKeyAllocation() {
+    public void TestKeyAllocation() throws Exception {
 
         // Node 0, 1, 3, 6
         List<ChordNode> nodes = buildRing(false);
@@ -227,7 +235,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestKeyMigration() {
+    public void TestKeyMigration() throws Exception {
 
         // Node 0, 1, 3, 6
         List<ChordNode> nodes = buildRing(false);
