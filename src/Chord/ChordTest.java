@@ -7,7 +7,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 
@@ -15,7 +14,7 @@ public class ChordTest {
 
     // the ring should be 0 - 1 - 3 - 6
     //                    \ - - - - - |
-    public List<ChordNode> buildRing(boolean shouldPrint) throws Exception {
+    public List<ChordNode> buildRing(boolean shouldPrint) {
 
         List<ChordNode> nodes = new ArrayList<>();
 
@@ -40,11 +39,7 @@ public class ChordTest {
         if (shouldPrint) {
             for (ChordNode node : nodes) {
                 for (int i = 1; i <= node.m; i++) {
-                    System.out.println(
-                            "start:" + node.fingerTable.get(0, i) +
-                            ",interval: [" + node.fingerTable.get(0, i) + "," + node.fingerTable.get(1, i) +
-                            "), node: " + node.fingerTable.get(2, i)
-                    );
+                    System.out.println(node.fingerTable[i]);
                 }
 
                 System.out.println(node + " predecessor: " + node.predecessor + ", " + node + " successor: " + node.successor);
@@ -57,7 +52,7 @@ public class ChordTest {
     }
 
     // build a whole circle from 0 - 6
-    public List<ChordNode> buildFullRing(boolean shouldPrint) throws Exception {
+    public List<ChordNode> buildFullRing(boolean shouldPrint) {
 
         List<ChordNode> nodes = new ArrayList<>();
 
@@ -98,11 +93,7 @@ public class ChordTest {
         if (shouldPrint) {
             for (ChordNode node : nodes) {
                 for (int i = 1; i <= node.m; i++) {
-                    System.out.println(
-                            "start:" + node.fingerTable.get(0, i) +
-                                    ",interval: [" + node.fingerTable.get(0, i) + "," + node.fingerTable.get(1, i) +
-                                    "), node: " + node.fingerTable.get(2, i)
-                    );
+                    System.out.println(node.fingerTable[i]);
                 }
 
                 System.out.println(node + " predecessor: " + node.predecessor + ", " + node + " successor: " + node.successor);
@@ -110,12 +101,11 @@ public class ChordTest {
                 System.out.println("------------------");
             }
         }
-
         return nodes;
     }
 
     @Test
-    public void TestJoin() throws Exception {
+    public void TestJoin() {
         ChordNode Node0 = new ChordNode(3,0);
         Node0.join(null);
 
@@ -150,7 +140,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestFindSuccessor() throws Exception {
+    public void TestFindSuccessor() {
         List<ChordNode> nodes = buildRing(false);
 
         // find successors of keys that are not in the ring
@@ -178,7 +168,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestFindPredecessor() throws Exception {
+    public void TestFindPredecessor() {
         List<ChordNode> nodes = buildRing(false);
 
         // find the predecessor of keys that are not in the ring
@@ -207,13 +197,13 @@ public class ChordTest {
     }
 
     @Test
-    public void TestBuildFullRing() throws Exception {
+    public void TestBuildFullRing() {
         // The node in the finger table should has the same id of the lower bound of the interval
         buildFullRing(true);
     }
 
     @Test
-    public void TestKeyAllocation() throws Exception {
+    public void TestKeyAllocation() {
 
         // Node 0, 1, 3, 6
         List<ChordNode> nodes = buildRing(false);
@@ -227,9 +217,6 @@ public class ChordTest {
         Response r1 = rNode2.getKey(new Request(null, 4, null));
         Response r2 = rNode2.putKey(new Request(null, 20, 2020));
 
-        rNode2.fingerTable.crashAndRecover(0);
-        rNode2.fingerTable.crashAndRecover(2);
-        rNode2.fingerTable.crashAndRecover(1);
 
         Response r3 = rNode2.getKey(new Request(null, 0, null));
 
@@ -290,11 +277,6 @@ public class ChordTest {
         for (int i = 0; i < taskCount; i++) {
             ChordNode rNode = list.get(r.nextInt(list.size()));
             long carshStartTime = System.currentTimeMillis();
-            if (r.nextInt(10) < 5) {
-                rNode.fingerTable.crashAndRecover(0);
-                rNode.fingerTable.crashAndRecover(2);
-                rNode.fingerTable.crashAndRecover(1);
-            }
             long carshEndTime = System.currentTimeMillis();
             crashTotalTime += (carshEndTime - carshStartTime);
             int val = (int) rNode.getKey(new Request(-1, i, i)).value;
