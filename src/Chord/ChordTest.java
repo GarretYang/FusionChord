@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 
@@ -224,6 +226,11 @@ public class ChordTest {
         rNode1.putKey(new Request(null, 20, 2020));
         Response r1 = rNode2.getKey(new Request(null, 4, null));
         Response r2 = rNode2.putKey(new Request(null, 20, 2020));
+
+        rNode2.fingerTable.crashAndRecover(0);
+        rNode2.fingerTable.crashAndRecover(2);
+        rNode2.fingerTable.crashAndRecover(1);
+
         Response r3 = rNode2.getKey(new Request(null, 0, null));
 
         assertEquals("The value should be 4444", 4444, r1.value);
@@ -268,5 +275,96 @@ public class ChordTest {
         ChordNode Node6 = nodes.get(nodes.size()-1);
         assertTrue("Node 6 should have an empty Map after the migration",Node6.hm.isEmpty());
 
+    }
+
+    public long[] experimentHelper(List<ChordNode> list, int q)  throws Exception  {
+        int taskCount = 1000;
+        Random r = new Random();
+        long startTime = System.currentTimeMillis();
+        for (int i = 0; i < taskCount; i++) {
+            list.get(0).putKey(new Request(-1, i, i));
+        }
+
+        long crashTotalTime = 0;
+
+        for (int i = 0; i < taskCount; i++) {
+            ChordNode rNode = list.get(r.nextInt(list.size()));
+            long carshStartTime = System.currentTimeMillis();
+            if (r.nextInt(10) < 5) {
+                rNode.fingerTable.crashAndRecover(0);
+                rNode.fingerTable.crashAndRecover(2);
+                rNode.fingerTable.crashAndRecover(1);
+            }
+            long carshEndTime = System.currentTimeMillis();
+            crashTotalTime += (carshEndTime - carshStartTime);
+            int val = (int) rNode.getKey(new Request(-1, i, i)).value;
+            assertEquals(val, i);
+        }
+        long endTime = System.currentTimeMillis();
+
+        long timeElapsed = endTime - startTime;
+        System.out.println("Time elapse for " + q + " is: " + timeElapsed );
+        System.out.println("Total crash time for " + q + " is: " + crashTotalTime );
+        System.out.println("-----------------------------");
+        return new long[]{timeElapsed, crashTotalTime};
+    }
+
+    @Test
+    public void TestLargeNetwork() throws Exception {
+        long total = 0;
+        long totalCrashTime = 0;
+        List<ChordNode> list = new ArrayList<>();
+        int m = 8;
+
+        ChordNode Node0 = new ChordNode(m, 0);
+        Node0.join(null);
+
+        for (int i = 1; i < Math.pow(2, m); i++) {
+            if (i % 2 == 0) {
+                ChordNode curNode = new ChordNode(m, i);
+                curNode.join(Node0);
+                list.add(curNode);
+            }
+        }
+        for (int q=0; q<1; q++) {
+            total+= experimentHelper(list, q)[0];
+            totalCrashTime += experimentHelper(list, q)[1];
+        }
+        System.out.println("Avg. time elapse is: " + total/20 );
+        System.out.println("Avg. crash time is: " + totalCrashTime/20 );
+    }
+
+    @Test
+    public void asycGetKeyTest() throws Exception {
+        long total = 0;
+        long totalCrashTime = 0;
+        List<ChordNode> list = new ArrayList<>();
+        int m = 4;
+        int taskCount = 10;
+
+        ChordNode Node0 = new ChordNode(m, 0);
+        Node0.join(null);
+
+        for (int i = 1; i < Math.pow(2, m); i++) {
+            if (i % 2 == 0) {
+                ChordNode curNode = new ChordNode(m, i);
+                curNode.join(Node0);
+                list.add(curNode);
+            }
+        }
+
+        for (int i = 0; i < taskCount; i++) {
+            list.get(0).putKey(new Request(-1, i, i));
+        }
+
+        List<Future<Response>> futures = new ArrayList<>();
+        for (int i = 0; i < taskCount; i++) {
+            futures.add(list.get(0).Start("GET", i, i));
+        }
+
+        System.out.println("Futures res: ");
+        for (int i = 0; i < taskCount; i++) {
+            System.out.println(futures.get(i).get().value);
+        }
     }
 }
