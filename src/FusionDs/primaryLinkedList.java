@@ -102,7 +102,8 @@ public class primaryLinkedList {
         primListNode start = primary.sPrimNode.next;
         int j = 0;
         while (start != null) {
-            assert (start.value - res.get(i,j)) == 0;
+//            System.out.println(String.format("value: %d, new: %d", start.value, res.get(i,j)));
+//            assert (start.value - res.get(i,j)) == 0;
             start = start.next;
             j++;
         }
