@@ -70,7 +70,7 @@ public class backupLinkedList {
         int[] tos;
 
         public Backup(int n) {
-            stack = new LinkedList<FuseNode>();
+            stack = new LinkedList<>();
             auxNodesList = new AuxNode[n];
             tos = new int[n];
             for (int i =0; i<n; i++) {
@@ -91,8 +91,8 @@ public class backupLinkedList {
             auxNodes = new AuxNode[n];
         }
 
-        public void updateNode(int i, Integer old, int d) {
-            value += matrix.get(i, j) * (d - old);
+        public void updateNode(int i, int old, int d) {
+            value += matrix.get(j, i) * (d - old);
         }
     }
 
