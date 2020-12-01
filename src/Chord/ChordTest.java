@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.junit.Assert.*;
@@ -318,14 +320,14 @@ public class ChordTest {
 
     @Test
     public void asycGetKeyTest() throws Exception {
-        long total = 0;
-        long totalCrashTime = 0;
         List<ChordNode> list = new ArrayList<>();
         int m = 4;
-        int taskCount = 10;
+        int taskCount = 100;
 
         ChordNode Node0 = new ChordNode(m, 0);
         Node0.join(null);
+
+        ExecutorService executor = Executors.newFixedThreadPool(1000);
 
         for (int i = 1; i < Math.pow(2, m); i++) {
             if (i % 2 == 0) {
@@ -341,12 +343,105 @@ public class ChordTest {
 
         List<Future<Response>> futures = new ArrayList<>();
         for (int i = 0; i < taskCount; i++) {
-            futures.add(list.get(0).Start("GET", i, i));
+            Future<Response> f = list.get(0).Start("GET", i, i, executor);
+            futures.add(f);
+//            Thread.sleep(10);
         }
 
-        System.out.println("Futures res: ");
         for (int i = 0; i < taskCount; i++) {
-            System.out.println(futures.get(i).get().value);
+            assertEquals(i, futures.get(i).get().value);
+//            Integer val = (Integer) futures.get(i).get().value;
+//            String diff = val.equals(i) ? "" : "  diff";
+//            System.out.println("index: "+ i + ", Future value: " + val + diff);
         }
+
+        executor.shutdown();
+    }
+
+    @Test
+    public void asycPutKeyTest() throws Exception {
+        List<ChordNode> list = new ArrayList<>();
+        int m = 4;
+        int taskCount = 100;
+
+        ChordNode Node0 = new ChordNode(m, 0);
+        Node0.join(null);
+
+        for (int i = 1; i < Math.pow(2, m); i++) {
+            if (i % 2 == 0) {
+                ChordNode curNode = new ChordNode(m, i);
+                curNode.join(Node0);
+                list.add(curNode);
+            }
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(1000);
+
+        List<Future<Response>> putFutures = new ArrayList<>();
+        for (int i = 0; i < taskCount; i++) {
+            putFutures.add(list.get(0).Start("PUT", i, i, executor));
+            Thread.sleep(10);
+        }
+
+        List<Future<Response>> futures = new ArrayList<>();
+        for (int i = 0; i < taskCount; i++) {
+            futures.add(list.get(0).Start("GET", i, i, executor));
+            Thread.sleep(10);
+        }
+
+        for (int i = 0; i < taskCount; i++) {
+            assertEquals(i, futures.get(i).get().value);
+        }
+
+        executor.shutdown();
+    }
+
+    @Test
+    public void asycRandomPutGetKeyTest() throws Exception {
+        List<ChordNode> list = new ArrayList<>();
+        int m = 8;
+        int taskCount = 20000;
+
+        ChordNode Node0 = new ChordNode(m, 0);
+        Node0.join(null);
+
+        ExecutorService executor = Executors.newFixedThreadPool(1000);
+
+        for (int i = 1; i < Math.pow(2, m); i++) {
+            if (i % 2 == 0) {
+                ChordNode curNode = new ChordNode(m, i);
+                curNode.join(Node0);
+                list.add(curNode);
+            }
+        }
+
+        Random r = new Random();
+        for (int i = 0; i < taskCount; i++) {
+            int rIndex = r.nextInt(list.size());
+            list.get(rIndex).Start("PUT", i, i, executor);
+        }
+
+        long startTime = System.currentTimeMillis();
+        List<Future<Response>> futures = new ArrayList<>();
+        for (int i = 0; i < taskCount; i++) {
+            int rIndex = r.nextInt(list.size());
+            futures.add(list.get(rIndex).Start("GET", i, i, executor));
+        }
+
+        for (int i = 0; i < taskCount; i++) {
+//            assertEquals(i, futures.get(i).get().value);
+            futures.get(i).get();
+        }
+        long endTime = System.currentTimeMillis();
+
+        long elapsedTime = endTime - startTime;
+
+        executor.shutdown();
+
+        System.out.println(
+        "Node count: " + Math.pow(2, m-1) + "\n" +
+           "Task count: " + taskCount + "\n" +
+                "Time: " + elapsedTime + "\n"
+        );
     }
 }
