@@ -46,6 +46,10 @@ public class backupLinkedList {
         return res;
     }
 
+    public int get_storage() {
+        return this.backup.stack.size();
+    }
+
     AuxNode findAuxNode(int k, AuxNode startNode) {
         AuxNode node = startNode.next;
         while (node != null) {
