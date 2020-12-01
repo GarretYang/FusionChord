@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Future;
 
 import static org.junit.Assert.*;
 
@@ -13,7 +14,7 @@ public class ChordTest {
 
     // the ring should be 0 - 1 - 3 - 6
     //                    \ - - - - - |
-    public List<ChordNode> buildRing(boolean shouldPrint) throws Exception {
+    public List<ChordNode> buildRing(boolean shouldPrint) {
 
         List<ChordNode> nodes = new ArrayList<>();
 
@@ -38,11 +39,7 @@ public class ChordTest {
         if (shouldPrint) {
             for (ChordNode node : nodes) {
                 for (int i = 1; i <= node.m; i++) {
-                    System.out.println(
-                            "start:" + node.fingerTable.get(0, i) +
-                            ",interval: [" + node.fingerTable.get(0, i) + "," + node.fingerTable.get(1, i) +
-                            "), node: " + node.fingerTable.get(2, i)
-                    );
+                    System.out.println(node.fingerTable[i]);
                 }
 
                 System.out.println(node + " predecessor: " + node.predecessor + ", " + node + " successor: " + node.successor);
@@ -55,7 +52,7 @@ public class ChordTest {
     }
 
     // build a whole circle from 0 - 6
-    public List<ChordNode> buildFullRing(boolean shouldPrint) throws Exception {
+    public List<ChordNode> buildFullRing(boolean shouldPrint) {
 
         List<ChordNode> nodes = new ArrayList<>();
 
@@ -96,11 +93,7 @@ public class ChordTest {
         if (shouldPrint) {
             for (ChordNode node : nodes) {
                 for (int i = 1; i <= node.m; i++) {
-                    System.out.println(
-                            "start:" + node.fingerTable.get(0, i) +
-                                    ",interval: [" + node.fingerTable.get(0, i) + "," + node.fingerTable.get(1, i) +
-                                    "), node: " + node.fingerTable.get(2, i)
-                    );
+                    System.out.println(node.fingerTable[i]);
                 }
 
                 System.out.println(node + " predecessor: " + node.predecessor + ", " + node + " successor: " + node.successor);
@@ -108,12 +101,11 @@ public class ChordTest {
                 System.out.println("------------------");
             }
         }
-
         return nodes;
     }
 
     @Test
-    public void TestJoin() throws Exception {
+    public void TestJoin() {
         ChordNode Node0 = new ChordNode(3,0);
         Node0.join(null);
 
@@ -148,7 +140,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestFindSuccessor() throws Exception {
+    public void TestFindSuccessor() {
         List<ChordNode> nodes = buildRing(false);
 
         // find successors of keys that are not in the ring
@@ -176,7 +168,7 @@ public class ChordTest {
     }
 
     @Test
-    public void TestFindPredecessor() throws Exception {
+    public void TestFindPredecessor() {
         List<ChordNode> nodes = buildRing(false);
 
         // find the predecessor of keys that are not in the ring
@@ -205,13 +197,13 @@ public class ChordTest {
     }
 
     @Test
-    public void TestBuildFullRing() throws Exception {
+    public void TestBuildFullRing() {
         // The node in the finger table should has the same id of the lower bound of the interval
         buildFullRing(true);
     }
 
     @Test
-    public void TestKeyAllocation() throws Exception {
+    public void TestKeyAllocation() {
 
         // Node 0, 1, 3, 6
         List<ChordNode> nodes = buildRing(false);
@@ -224,6 +216,8 @@ public class ChordTest {
         rNode1.putKey(new Request(null, 20, 2020));
         Response r1 = rNode2.getKey(new Request(null, 4, null));
         Response r2 = rNode2.putKey(new Request(null, 20, 2020));
+
+
         Response r3 = rNode2.getKey(new Request(null, 0, null));
 
         assertEquals("The value should be 4444", 4444, r1.value);
@@ -268,5 +262,91 @@ public class ChordTest {
         ChordNode Node6 = nodes.get(nodes.size()-1);
         assertTrue("Node 6 should have an empty Map after the migration",Node6.hm.isEmpty());
 
+    }
+
+    public long[] experimentHelper(List<ChordNode> list, int q)  throws Exception  {
+        int taskCount = 1000;
+        Random r = new Random();
+        long startTime = System.currentTimeMillis();
+        for (int i = 0; i < taskCount; i++) {
+            list.get(0).putKey(new Request(-1, i, i));
+        }
+
+        long crashTotalTime = 0;
+
+        for (int i = 0; i < taskCount; i++) {
+            ChordNode rNode = list.get(r.nextInt(list.size()));
+            long carshStartTime = System.currentTimeMillis();
+            long carshEndTime = System.currentTimeMillis();
+            crashTotalTime += (carshEndTime - carshStartTime);
+            int val = (int) rNode.getKey(new Request(-1, i, i)).value;
+            assertEquals(val, i);
+        }
+        long endTime = System.currentTimeMillis();
+
+        long timeElapsed = endTime - startTime;
+        System.out.println("Time elapse for " + q + " is: " + timeElapsed );
+        System.out.println("Total crash time for " + q + " is: " + crashTotalTime );
+        System.out.println("-----------------------------");
+        return new long[]{timeElapsed, crashTotalTime};
+    }
+
+    @Test
+    public void TestLargeNetwork() throws Exception {
+        long total = 0;
+        long totalCrashTime = 0;
+        List<ChordNode> list = new ArrayList<>();
+        int m = 8;
+
+        ChordNode Node0 = new ChordNode(m, 0);
+        Node0.join(null);
+
+        for (int i = 1; i < Math.pow(2, m); i++) {
+            if (i % 2 == 0) {
+                ChordNode curNode = new ChordNode(m, i);
+                curNode.join(Node0);
+                list.add(curNode);
+            }
+        }
+        for (int q=0; q<1; q++) {
+            total+= experimentHelper(list, q)[0];
+            totalCrashTime += experimentHelper(list, q)[1];
+        }
+        System.out.println("Avg. time elapse is: " + total/20 );
+        System.out.println("Avg. crash time is: " + totalCrashTime/20 );
+    }
+
+    @Test
+    public void asycGetKeyTest() throws Exception {
+        long total = 0;
+        long totalCrashTime = 0;
+        List<ChordNode> list = new ArrayList<>();
+        int m = 4;
+        int taskCount = 10;
+
+        ChordNode Node0 = new ChordNode(m, 0);
+        Node0.join(null);
+
+        for (int i = 1; i < Math.pow(2, m); i++) {
+            if (i % 2 == 0) {
+                ChordNode curNode = new ChordNode(m, i);
+                curNode.join(Node0);
+                list.add(curNode);
+            }
+        }
+
+        for (int i = 0; i < taskCount; i++) {
+            list.get(0).putKey(new Request(-1, i, i));
+        }
+
+        List<Future<Response>> futures = new ArrayList<>();
+        for (int i = 0; i < taskCount; i++) {
+            futures.add(list.get(0).Start("GET", i, i));
+        }
+
+        System.out.println("Futures res: ");
+        for (int i = 0; i < taskCount; i++) {
+            System.out.println(futures.get(i).get().value);
+        }
     }
 }
