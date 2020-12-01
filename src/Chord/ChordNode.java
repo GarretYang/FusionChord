@@ -65,7 +65,6 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 
     public Response Call(String rmi, Request r, int serverId) {
@@ -74,8 +73,10 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
         ChordRMI stub;
         try {
             int portId = serverId + 1000;
+            mutex.lock();
             Registry registry = LocateRegistry.getRegistry(portId);
             stub=(ChordRMI) registry.lookup("Chord");
+            mutex.unlock();
             if (rmi.equals("FindSuccessor")) {
                 callReply = stub.findSuccessor(r);
             } else if (rmi.equals("FindPredecessor")) {
@@ -119,8 +120,8 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
     // init finger table all nodes in the table points to the current node
     public void initFingerTable(int ServerId) {
         for (int i = 1; i <= m; i++) {
-            int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);;
-            int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);;
+            int intervalStart = (nid + (int) Math.pow(2, i-1)) % (int) Math.pow(2,m);
+            int intervalEnd = (nid + (int) Math.pow(2, i)) % (int) Math.pow(2,m);
             fingerTable[i] = new Finger(intervalStart, new int[]{intervalStart, intervalEnd}, this.nid);
         }
 
@@ -323,19 +324,16 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
         return "Node" + this.nid;
     }
 
-    public Future<Response> Start(String task, Integer key, Integer val) {
+    public Future<Response> Start(String task, Integer key, Integer val, ExecutorService executorService) {
         mutex.lock();
-        Future<Response> future;
         try {
             this.taskQ.add(task);
             this.keyQ.add(key);
-            this.valQ.add(key);
+            this.valQ.add(val);
         } finally {
             mutex.unlock();
         }
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        future = executorService.submit(this);
-        return future;
+        return executorService.submit(this);
     }
 
     @Override
@@ -363,6 +361,7 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
         }
         if (curTask.equals("GET")) {
             rsp = getKey(new Request(this.nid, curKey, null));
+//            System.out.println("key: " + curKey + ", value: " + rsp.value);
         }
         return rsp;
     }
@@ -398,7 +397,7 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
         return null;
     }
 
-    public boolean exit() throws RemoteException{
+    public boolean exit() {
         try{
             int portId = this.nid + 1000;
             // Unregister ourself
