@@ -26,4 +26,8 @@ public class Response implements Serializable {
     public Response(Map<Integer, Integer> hm) {
         this.hm = hm;
     }
+
+    public String toString() {
+        return "value: " + value;
+    }
 }
