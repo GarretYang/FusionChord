@@ -43,6 +43,8 @@ class primaryLinkedListTest {
                 vals[i+3][j] = (byte) res[j];
             }
         }
-        lists[0].crashAndRecover(ids, vals);
+
+        // ids
+        lists[1].crashAndRecover(ids, vals);
     }
 }

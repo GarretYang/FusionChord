@@ -1,5 +1,8 @@
 package FusionDs;
 
+import java.util.LinkedList;
+import java.util.List;
+
 public class primaryLinkedList {
     Primary primary;
     Matrix matrix;
@@ -77,6 +80,16 @@ public class primaryLinkedList {
             startNode = startNode.next;
         }
         startNode.next = newNode;
+    }
+
+    public int[] get_data() {
+        List<Integer> l = new LinkedList<Integer>();
+        primListNode sn = this.primary.sPrimNode.next;
+        while (sn != null) {
+            l.add(sn.value);
+            sn = sn.next;
+        }
+        return l.stream().mapToInt(i->i).toArray();
     }
 
     public void crashAndRecover(int[] ids, byte[][] vals) {
