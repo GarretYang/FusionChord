@@ -1,11 +1,17 @@
 package Chord;
 
+import FusionDs.backupLinkedList;
+import FusionDs.fusionMatrix;
+import FusionDs.primaryLinkedList;
+
 import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -44,6 +50,12 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
     ConcurrentLinkedQueue<Integer> keyQ;
     ConcurrentLinkedQueue<Integer> valQ;
 
+    String NodeType;
+    primaryLinkedList storageList;
+    backupLinkedList backupList;
+
+    int[][] preCrashData;
+
     public ChordNode(int m, int id) {
         this.m = m;
         this.nid = id;
@@ -64,6 +76,19 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
             registry.rebind("Chord", stub);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public ChordNode(int m, int id, String nodeType, int n, int f, int relativeOrder) {
+        this(m, id);
+        if (nodeType.equals("Storage")) {
+            fusionMatrix fm = new fusionMatrix(n, f);
+            this.NodeType = "Storage";
+            this.storageList = new primaryLinkedList(fm.matrix, relativeOrder);
+        } else if (nodeType.equals("BackUp")) {
+            fusionMatrix fm = new fusionMatrix(n, f);
+            this.NodeType = "BackUp";
+            this.backupList = new backupLinkedList(n, fm.matrix, relativeOrder);
         }
     }
 
@@ -105,6 +130,8 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
                 callReply = stub.removeKey(r);
             } else if (rmi.equals("MigrateKey")) {
                 callReply = stub.migrateKey(r);
+            } else if (rmi.equals("GetStorageData")) {
+                callReply = stub.getStorageData();
             } else {
                 stub.addNode(new ChordNode(3, 1));
                 System.out.println("Invalid parameters");
@@ -237,6 +264,46 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
         return new Response(new HashMap<>(migrateMap));
     }
 
+    public void requestStorageData(int[] ChordIds) {
+        int maxLen = 0;
+        List<Response> rspList = new ArrayList<>();
+
+        for (int ChordId : ChordIds) {
+            ChordId = (int) (ChordId % Math.pow(2, m));
+            Response dataRsp = Call("GetStorageData", null, ChordId);
+            rspList.add(dataRsp);
+            maxLen = Math.max(maxLen, dataRsp.recoverData.length);
+        }
+
+        this.preCrashData = new int[ChordIds.length][maxLen];
+        for (int i = 0; i < rspList.size(); i++) {
+            Response rsp = rspList.get(i);
+            for (int j = 0; j < rsp.recoverData.length; j++) {
+                this.preCrashData[i][j] = rsp.recoverData[j];
+            }
+        }
+    }
+
+    public void crashAndRecover(int[] ChordIds) {
+        byte[][] val = new byte[preCrashData.length][preCrashData[0].length];
+        for (int i = 0; i < val.length; i++) {
+            for (int j = 0; j < val[0].length; j++) {
+                val[i][j] = (byte) this.preCrashData[i][j];
+            }
+        }
+        this.storageList.crashAndRecover(ChordIds, val);
+    }
+
+    public Response getStorageData() {
+        int[] storageData = new int[0];
+        if ("Storage".equals(this.NodeType)) {
+            storageData = this.storageList.get_data();
+        } else if ("BackUp".equals(this.NodeType)) {
+            storageData = this.backupList.get_recovery();
+        }
+        return new Response(storageData, this.nid);
+    }
+
     public Response findSuccessor(Request r) {
         int ChordId = (int) (r.ChordId % Math.pow(2, m));
         if (successor == this.nid) return new Response(this.nid);
@@ -321,7 +388,9 @@ public class ChordNode implements ChordRMI, Callable<Response>, Serializable {
     }
 
     public String toString() {
-        return "Node" + this.nid;
+        String backup = this.backupList != null ? " (BackUp Node)" : "";
+        String normal = this.storageList != null ? " (Storage Node)" : "";
+        return "Node" + this.nid + backup + normal;
     }
 
     public Future<Response> Start(String task, Integer key, Integer val, ExecutorService executorService) {

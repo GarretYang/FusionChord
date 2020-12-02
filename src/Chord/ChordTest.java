@@ -444,4 +444,81 @@ public class ChordTest {
                 "Time: " + elapsedTime + "\n"
         );
     }
+
+    public List<ChordNode> createBackUpNetwork(int m, int f, int n) {
+        int curN = 0;
+        int curF = 0;
+
+        List<ChordNode> list = new ArrayList<>();
+
+        ChordNode Node0 = new ChordNode(m, 0, "Storage", n, f, curN++);
+        Node0.join(null);
+
+        list.add(Node0);
+
+        for (int i = 1; i < Math.pow(2, m); i++) {
+            if (curN < n) {
+                ChordNode curNode = new ChordNode(m, i, "Storage", n, f, curN++);
+                curNode.join(Node0);
+                list.add(curNode);
+            } else if (curF < n) {
+                ChordNode curNode = new ChordNode(m, i, "BackUp", n, f, curF++);
+                curNode.join(Node0);
+                list.add(curNode);
+            }
+        }
+
+        for (int i = 0; i<n; i++) {
+            Random rand = new Random();
+            for (int j = 0; j<1000 + rand.nextInt(10); j++) {
+                byte val = (byte) rand.nextInt(10);
+                list.get(i).storageList.insert(j, val);
+                for (int k = 0; k<f; k++) {
+                    list.get(n+k).backupList.insert(i, j, 0, val);
+                }
+            }
+        }
+        return list;
+    }
+
+    @Test
+    public void storageTest() {
+        int m = 4;
+        int f = 5;
+        int n = (int) Math.pow(2, m-1) - f;
+
+        List<ChordNode> list = createBackUpNetwork(m, f, n);
+
+        int totalStorageSize = 0;
+        for (int i = n; i < n+f; i++) {
+            totalStorageSize += list.get(i).backupList.get_storage();
+        }
+
+        System.out.println("Total Storage Size: " + totalStorageSize);
+    }
+
+    @Test
+    public void testRecoverTime() {
+        int m = 8;
+        int f = 5;
+        int n = (int) Math.pow(2, m) - f;
+
+        Random r = new Random();
+        List<ChordNode> list = createBackUpNetwork(m, f, n);
+
+        int[] ChordIds = new int[n];
+        for (int i = 3; i < n+3; i++) {
+            ChordIds[i-3] = list.get(i).nid;
+        }
+
+        long startTime = System.currentTimeMillis();
+        ChordNode crashNode = list.get(r.nextInt(n));
+        crashNode.requestStorageData(ChordIds);
+        crashNode.crashAndRecover(ChordIds);
+        long endTime = System.currentTimeMillis();
+
+        long elapsedTime = endTime - startTime;
+
+        System.out.println("Elapsed Time: " + elapsedTime);
+    }
 }

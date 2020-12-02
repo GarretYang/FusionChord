@@ -13,6 +13,9 @@ public class Response implements Serializable {
     Object value;
     int ChordId;
     Map<Integer, Integer> hm;
+    int[] recoverData;
+
+
     // Your constructor and methods here
     public Response(Object value) {
         this.value = value;
@@ -21,6 +24,11 @@ public class Response implements Serializable {
     public Response(Object value, int ChordId) {
         this.ChordId = ChordId;
         this.value = value;
+    }
+
+    public Response(int[] recoverData, int ChordId) {
+        this.ChordId = ChordId;
+        this.recoverData = recoverData;
     }
 
     public Response(Map<Integer, Integer> hm) {
